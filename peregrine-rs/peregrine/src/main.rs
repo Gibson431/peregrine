@@ -5,7 +5,7 @@ use defmt as _;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio;
-use embassy_rp::i2c::{self, Async, Config, I2c};
+use embassy_rp::i2c::{self, I2c};
 use embassy_rp::peripherals::{I2C1, USB};
 use embassy_rp::usb::{self, Driver};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -14,7 +14,9 @@ use embassy_time::{Duration, Ticker, Timer};
 use gpio::{AnyPin, Level, Output};
 use {defmt_rtt as _, panic_probe as _};
 
-use peregrine_rs::bmp280::BMP280;
+// use peregrine::bmp280::BMP280;
+use bmp280_ehal::BMP280;
+use peregrine::filter::{filter_task, KalmanFilter};
 
 #[embassy_executor::task]
 async fn logger_task(driver: Driver<'static, USB>) {
@@ -22,7 +24,8 @@ async fn logger_task(driver: Driver<'static, USB>) {
 }
 
 #[embassy_executor::task]
-async fn bmp280_task(mut bmp: BMP280<I2c<'static, I2C1, Async>>) {
+async fn bmp280_task(mut bmp: BMP280<bmp280_ehal::interface::i2c::I2cInterface<I2c<'static, I2C1, i2c::Blocking>>>)
+{
     let mut ticker = Ticker::every(Duration::from_hz(5));
     loop {
         log::info!("{:?}", bmp.pressure());
@@ -77,14 +80,15 @@ async fn main(spawner: Spawner) -> ! {
 
     let sda = p.PIN_14;
     let scl = p.PIN_15;
-    let i2c = i2c::I2c::new_async(p.I2C1, scl, sda, Irqs, Config::default());
-    let bmp = BMP280::new_with_address(i2c, 0x55);
+    let i2c = i2c::I2c::new_blocking(p.I2C1, scl, sda, i2c::Config::default());
+    let bmp = BMP280::new(bmp280_ehal::interface::i2c::I2cInterface::new(i2c, 0x55));
     if let Err(e) = &bmp {
         log::error!("{:?}", e);
     } else {
         log::info!("BMP280 successfully created");
         let bmp = bmp.unwrap();
         spawner.spawn(bmp280_task(bmp)).unwrap();
+        spawner.spawn(filter_task()).unwrap();
     }
 
     loop {

@@ -1,0 +1,31 @@
+[package]
+name = "peregrine"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gibson431 <timmaxgibson@gmail.com>"]
+resolver = "2"
+
+[dependencies]
+embassy-rp = {workspace = true}
+embassy-usb-logger = {workspace = true}
+embassy-sync = {workspace = true}
+embassy-executor={workspace = true}
+embassy-time = {workspace = true}
+embedded-hal = {workspace = true}
+nalgebra = {workspace = true}
+defmt = {workspace =true}
+cortex-m = {workspace = true}
+cortex-m-rt = {workspace = true}
+log = {workspace = true}
+panic-probe = {workspace = true}
+defmt-rtt = {workspace = true}
+
+bmp280-ehal = {path = "../bmp280-ehal"}
+embedded-sdmmc = "0.8.0"
+
+[profile.release]
+debug = 2
+
+[[bin]]
+name = "peregrine"
+test = false
